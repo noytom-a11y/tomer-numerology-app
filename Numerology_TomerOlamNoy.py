@@ -1,5 +1,5 @@
 # ====================================================
-# Numerology_TomerOlamNoy.py - קוד מלא ומתוקן סופית
+# Numerology_TomerOlamNoy.py - קוד מלא (כולל תדרים דינמיים)
 # ====================================================
 import streamlit as st
 import pandas as pd
@@ -41,7 +41,7 @@ STRENGTH_TEXT_MAP = {
 # 🚨 משפט הקארמה המבוקש
 KARMIC_WARNING = "נטייה לחשיבה ראשונה שלילית. רצוי לקבל החלטות רק לאחר שנרגעים ולהתייחס לחשיבה השנייה ולא לראשונה."
 
-# 🚨 מפות הניתוח המרוכזות - המפתחות תוקנו לשמות התדרים החדשים
+# 🚨 מפות הניתוח המרוכזות (נשאר כפי שהיה)
 CHAKRA_ANALYSIS = {
     # הותאם מ'צ'אקרת הבסיס'
     'תדר סביבתי': { 
@@ -202,15 +202,31 @@ CHAKRA_ANALYSIS = {
     }
 }
 
+# מפת צבעים סופית
+COLOR_MAP_HTML = {
+    '⭐ תדר מאסטר': '#DC143C',     # אדום (MASTER)
+    '⚠️ תדר חלש/מעכב': '#0000FF',  # כחול (WEAK: 2, 7)
+    '❌ תדר קארמתי': '#A9A9A9',    # אפור (KARMIC: 13, 14, 16, 19)
+    '✅ תדר חזק': '#FFFF00',       # צהוב (STRONG)
+    '➖ תדר מאוזן': '#F0F2F6',     # אפור בהיר (MEDIUM/NEUTRAL)
+    '⚪ אתגר חזק במיוחד': '#C0C0C0' # אפור מתכתי
+}
+
+
 # 2. פונקציות עזר וצמצום 
 # ------------------------------------------------
 def reduce_number(n, special_rules=True, reduce_all=False):
     """מצמצם מספר. special_rules=True שומר על מאסטרים וקארמה. reduce_all=True תמיד מצמצם לחד-ספרתי."""
+    if special_rules:
+        if n in ALL_MASTER_NUMBERS or n in KARMIC_NUMBERS:
+            return n
+            
     if reduce_all:
         while n > 9:
             n = sum(int(digit) for digit in str(n))
         return n
     
+    # צמצום רגיל (שומר מאסטרים מעל 9 שאינם 11, 22, 33)
     while n > 9 and n not in SPECIAL_NUMBERS:
         n = sum(int(digit) for digit in str(n))
     return n
@@ -225,9 +241,8 @@ def calculate_name_sum(name_part, letters_map, return_unreduced=False):
     if return_unreduced: return total
     return reduce_number(total, special_rules=True)
 
-# 3. חישוב תאריך לידה 
+# 3. חישוב תאריך לידה ותדרים דינמיים
 # ------------------------------------------------
-# 🚨 תיקון לוגי בפונקציית המזלות
 def get_astro_sign(day, month):
     """מחשב את המזל האסטרולוגי על בסיס יום וחודש ומחזיר את שם המזל."""
     if (month == 3 and day >= 21) or (month == 4 and day <= 19): return 'טלה'
@@ -242,7 +257,7 @@ def get_astro_sign(day, month):
     if (month == 12 and day >= 22) or (month == 1 and day <= 19): return 'גדי'
     if (month == 1 and day >= 20) or (month == 2 and day <= 18): return 'דלי'
     if (month == 2 and day >= 19) or (month == 3 and day <= 20): return 'דגים'
-    return 'לא נמצא' # אם המערכת מגיעה לכאן, יש בעיה בנתוני הקלט
+    return 'לא נמצא' 
 
 def calculate_birth_data(day, month, year):
     """מחשב את תדרי הלידה הראשיים (תשוקה, ייעוד, אסטרולוגי)."""
@@ -266,6 +281,67 @@ def calculate_birth_data(day, month, year):
     astro_number = ASTRO_MAP.get(astro_sign, None)
     
     return day_reduced, month_val, month_reduced, year_reduced, year_reduced_single, destiny_number, astro_number, astro_sign
+
+# 🚨 פונקציות חדשות: חישוב תדרים אישיים
+def calculate_personal_year(day_of_birth, month_of_birth, year_of_birth, current_date):
+    """
+    מחשב את תדר השנה האישית, לפי כללי הצמצום (שומר מאסטר/קארמה) 
+    והבדיקה אם יום ההולדת בשנה הנוכחית כבר עבר.
+    """
+    
+    # צמצום יום וחודש לידה (שומר מאסטר/קארמה)
+    D = reduce_number(day_of_birth, special_rules=True)
+    
+    M_val = month_of_birth
+    if month_of_birth == 10: M_val = 1
+    elif month_of_birth == 12: M_val = 3
+    M = reduce_number(M_val, special_rules=True)
+
+    # בדיקה האם יום ההולדת כבר עבר בשנה הנוכחית (current_date)
+    has_birthday_passed = (
+        current_date.month > month_of_birth or 
+        (current_date.month == month_of_birth and current_date.day >= day_of_birth)
+    )
+
+    if has_birthday_passed:
+        # יום הולדת כבר עבר - משתמשים בשנה הנוכחית
+        year_to_use = current_date.year
+    else:
+        # יום הולדת טרם עבר - משתמשים בשנה קודמת
+        year_to_use = current_date.year - 1
+
+    # צמצום ערך השנה (שומר מאסטר/קארמה)
+    Y = reduce_number(year_to_use, special_rules=True)
+    
+    # חישוב תדר השנה האישית: יום + חודש + שנה
+    personal_year_sum = D + M + Y
+    personal_year_freq = reduce_number(personal_year_sum, special_rules=True)
+    
+    return personal_year_freq, year_to_use
+
+def calculate_personal_cycles(day_of_birth, month_of_birth, year_of_birth, current_date):
+    """
+    מחשב את תדרי השנה, החודש והיום האישיים.
+    """
+    
+    # 1. תדר השנה האישית
+    py_freq, py_year = calculate_personal_year(day_of_birth, month_of_birth, year_of_birth, current_date)
+    
+    # 2. תדר החודש האישי
+    current_month_val = current_date.month
+    M_current_reduced = reduce_number(current_month_val, special_rules=True) 
+    
+    personal_month_sum = py_freq + M_current_reduced
+    personal_month_freq = reduce_number(personal_month_sum, special_rules=True)
+    
+    # 3. תדר היום האישי
+    current_day_val = current_date.day
+    D_current_reduced = reduce_number(current_day_val, special_rules=True)
+    
+    personal_day_sum = personal_month_freq + D_current_reduced
+    personal_day_freq = reduce_number(personal_day_sum, special_rules=True)
+    
+    return py_freq, personal_month_freq, personal_day_freq, py_year
 
 # 4. חישוב תדרי שם
 # ------------------------------------------------
@@ -375,8 +451,9 @@ def get_strength_text(freq_name, freq_value, astro_sign=None):
 
     if is_karmic: return get_key('KARMIC')
     if is_master: return get_key('MASTER')
-
-    if freq_name in {'אנרגיה ראשית'}:
+    
+    # הגדרות כלליות לתדרים אישיים (הותאם כדי לעבוד גם על תדרים דינמיים)
+    if freq_name in {'אנרגיה ראשית', 'תדר הייעוד (שביל הגורל)', 'תדר התשוקה (יום הלידה)', 'תדר סביבתי', 'תדר תעסוקה', 'תדר הביטוי והחשיבה', 'תדר התת מודע', 'תדר השם', 'שנה אישית', 'חודש אישי', 'יום אישי'}:
         if freq_value in {1, 5, 8, 9}: return get_key('STRONG')
         if freq_value in {2, 7}: return get_key('WEAK')
         if freq_value in {3, 4, 6}: return get_key('MEDIUM')
@@ -386,11 +463,6 @@ def get_strength_text(freq_name, freq_value, astro_sign=None):
         if freq_value in {1, 3, 5, 8, 9}: return get_key('STRONG')
         if freq_value in {2, 4, 6, 7}: return get_key('WEAK')
         
-    if freq_name in {'תדר הייעוד', 'תדר התשוקה', 'תדר סביבתי', 'תדר תעסוקה', 'תדר הביטוי והחשיבה', 'תדר התת מודע', 'תדר השם'}:
-        if freq_value in {1, 5, 8, 9}: return get_key('STRONG')
-        if freq_value in {2, 7}: return get_key('WEAK')
-        if freq_value in {3, 4, 6}: return get_key('MEDIUM')
-
     if freq_name == 'תדר מזל אסטרולוגי':
         if astro_sign in {'עקרב', 'שור'}: return get_key('MASTER')
         if astro_sign in {'טלה', 'אריה', 'גדי', 'תאומים', 'קשת'}: return get_key('STRONG')
@@ -400,7 +472,6 @@ def get_strength_text(freq_name, freq_value, astro_sign=None):
         
     return get_key('NEUTRAL')
 
-# 🚨 פונקציה זו תוקנה כדי לקרוא את המפתח הנכון במילון
 def get_chakra_description_text(freq_value, chakra_name):
     """מחזירה תיאור מילולי על בסיס תדר הצ'אקרה ושמה החדש."""
     
@@ -409,11 +480,9 @@ def get_chakra_description_text(freq_value, chakra_name):
     if description_map and freq_value in description_map:
         return description_map[freq_value]
     
-    # טיפול מיוחד בערך 0
     if chakra_name == 'תדר החוסר' and freq_value == 0:
         return CHAKRA_ANALYSIS['תדר החוסר'][0]
     
-    # במקרה של מזל אסטרולוגי, אם לא מצא ערך ספציפי (למשל, 33), יחזיר הודעה מפורטת
     if chakra_name == 'תדר מזל אסטרולוגי' and freq_value is not None:
          return f"תדר מזל אסטרולוגי ({freq_value}) לא מוגדר במילון הניתוח המילולי."
     
@@ -422,11 +491,14 @@ def get_chakra_description_text(freq_value, chakra_name):
 # 7. פונקציית הפעלה ראשית
 # ----------------------------------------------------
 
-def run_numerology_tool(day, month, year, first_name, last_name):
+def run_numerology_tool(day, month, year, first_name, last_name, current_date): # 🚨 הוספת current_date
     """מריץ את כל החישובים ומחזיר את ה-DataFrames לתצוגה ב-Streamlit."""
     
     day_reduced, month_val, month_reduced, year_reduced, year_reduced_single, destiny_number, astro_number, astro_sign = \
         calculate_birth_data(day, month, year)
+    
+    # 🚨 חישוב התדרים האישיים החדשים
+    py_freq, pm_freq, pd_freq, py_year = calculate_personal_cycles(day, month, year, current_date)
     
     # 1. מחזורי חיים
     cycles, periods = calculate_life_cycles(day_reduced, month_val, year_reduced, destiny_number)
@@ -487,11 +559,10 @@ def run_numerology_tool(day, month, year, first_name, last_name):
 
         row = [name, value_display, strength, freq]
         
-        # 🚨 יצירת ניתוח מילולי - שימוש בשם התדר הנקי כ-Key
+        # יצירת ניתוח מילולי - שימוש בשם התדר הנקי כ-Key
         name_for_analysis = name.split('(')[0].strip()
         desc = get_chakra_description_text(freq, name_for_analysis)
         
-        # אם התיאור לא מכיל את הודעת השגיאה "לא נמצא ניתוח" - נציג אותו
         if "לא נמצא ניתוח" not in desc:
             analysis_text.append(f"**{name}** ({freq}): {desc}")
 
@@ -502,23 +573,21 @@ def run_numerology_tool(day, month, year, first_name, last_name):
 
     df_birth = pd.DataFrame(birth_data, columns=['שם התדר', 'ערך נומרולוגי', 'עוצמת התדר', '__תדר_נקי'])
     df_name = pd.DataFrame(name_data, columns=['שם התדר', 'ערך נומרולוגי', 'עוצמת התדר', '__תדר_נקי'])
+    
+    # 🚨 DataFrame של התדרים האישיים (חדש)
+    personal_cycles_data = [
+        ['שנה אישית', py_freq, get_strength_text('שנה אישית', py_freq), py_freq, f" (חישוב לשנת {py_year})"],
+        ['חודש אישי', pm_freq, get_strength_text('חודש אישי', pm_freq), pm_freq, f" ({current_date.month}/{current_date.year})"],
+        ['יום אישי', pd_freq, get_strength_text('יום אישי', pd_freq), pd_freq, f" ({current_date.day}/{current_date.month}/{current_date.year})"]
+    ]
 
-    return df_cycles, df_birth, df_name, "\n\n".join(analysis_text)
+    df_personal_cycles = pd.DataFrame(personal_cycles_data, columns=['תדר דינמי', 'ערך נומרולוגי', 'עוצמת התדר', '__תדר_נקי', 'הערה'])
+
+    return df_cycles, df_birth, df_name, df_personal_cycles, "\n\n".join(analysis_text)
 
 
-# -------------------------------------------------------------------------------------------------
 # 8. קוד הממשק של Streamlit (לצורך הצגת התוצאות)
 # -------------------------------------------------------------------------------------------------
-
-# מפת צבעים סופית
-COLOR_MAP_HTML = {
-    '⭐ תדר מאסטר': '#DC143C',     # אדום (MASTER)
-    '⚠️ תדר חלש/מעכב': '#0000FF',  # כחול (WEAK: 2, 7)
-    '❌ תדר קארמתי': '#A9A9A9',    # אפור (KARMIC: 13, 14, 16, 19)
-    '✅ תדר חזק': '#FFFF00',       # צהוב (STRONG)
-    '➖ תדר מאוזן': '#F0F2F6',     # אפור בהיר (MEDIUM/NEUTRAL)
-    '⚪ אתגר חזק במיוחד': '#C0C0C0' # אפור מתכתי
-}
 
 def style_cycles_table(df, df_full_data):
     """צובעת את טבלת מחזורי החיים."""
@@ -621,6 +690,17 @@ def main():
         last_name = st.text_input("שם משפחה:", "נוי")
         
         st.markdown("---")
+
+        # 🚨 קליטת תאריך נוכחי (לצורך חישוב תדרים דינמיים)
+        st.subheader("תאריך נוכחי (לחישוב שנה/חודש/יום אישי)")
+        current_date_input = st.date_input(
+            "בחר תאריך נוכחי:", 
+            datetime.now().date(), 
+            key="current_d"
+        )
+        current_date = datetime.combine(current_date_input, datetime.min.time()) # המרה ל-datetime object
+        
+        st.markdown("---")
         
         calculate_button = st.button("לחץ לחישוב וניתוח התדרים", use_container_width=True)
 
@@ -630,8 +710,8 @@ def main():
         
         try:
             # קריאה לפונקציה המאוחדת
-            df_cycles, df_birth, df_name, analysis_text = run_numerology_tool(
-                day, month, year, first_name, last_name
+            df_cycles, df_birth, df_name, df_personal_cycles, analysis_text = run_numerology_tool(
+                day, month, year, first_name, last_name, current_date # 🚨 העברת current_date
             )
             
             # ------------------------------------------------------
@@ -639,11 +719,9 @@ def main():
             # ------------------------------------------------------
             st.header("1. מחזורי החיים")
             
-            # עמודות לתצוגה סופית
             cols_to_display = ['מחזור', 'טווח גילאים', 'אנרגיה משנית', 'אנרגיה ראשית', 'רצון היקום']
             df_cycles_display = df_cycles[cols_to_display]
             
-            # החלת סגנונות על טבלת המחזורים
             styled_df_cycles = df_cycles_display.style.apply(
                 style_cycles_table, df_full_data=df_cycles, axis=None
             )
@@ -653,9 +731,24 @@ def main():
             st.markdown("---")
 
             # ------------------------------------------------------
-            # טבלה 2: תדרי הלידה
+            # 🚨 טבלה 2: תדרים דינמיים (שנה, חודש, יום אישי)
             # ------------------------------------------------------
-            st.header("2. תדרי הלידה")
+            st.header("2. תדרים אישיים (שנה, חודש, יום - דינמי)")
+            
+            # העמודות הרלוונטיות לתצוגה
+            df_personal_display = df_personal_cycles[['תדר דינמי', 'ערך נומרולוגי', 'עוצמת התדר', 'הערה']]
+            
+            styled_df_personal = df_personal_display.style.apply(
+                highlight_general_table, axis=1
+            )
+            st.dataframe(styled_df_personal, use_container_width=True, hide_index=True)
+
+            st.markdown("---")
+            
+            # ------------------------------------------------------
+            # טבלה 3: תדרי הלידה (קבועים)
+            # ------------------------------------------------------
+            st.header("3. תדרי הלידה (קבועים)")
             
             df_birth_display = df_birth[['שם התדר', 'ערך נומרולוגי', 'עוצמת התדר']]
             styled_df_birth = df_birth_display.style.apply(
@@ -666,9 +759,9 @@ def main():
             st.markdown("---")
             
             # ------------------------------------------------------
-            # טבלה 3: מפת תדרי השם
+            # טבלה 4: מפת תדרי השם
             # ------------------------------------------------------
-            st.header("3. מפת תדרי השם")
+            st.header("4. מפת תדרי השם")
             
             df_name_display = df_name[['שם התדר', 'ערך נומרולוגי', 'עוצמת התדר']]
             styled_df_name = df_name_display.style.apply(
@@ -679,9 +772,9 @@ def main():
             st.markdown("---")
             
             # ------------------------------------------------------
-            # 4. ניתוח השילובים
+            # 5. ניתוח השילובים
             # ------------------------------------------------------
-            st.header("4. שילובים (ניתוח אישיות)")
+            st.header("5. שילובים (ניתוח אישיות)")
             
             if analysis_text:
                 st.markdown(analysis_text)
